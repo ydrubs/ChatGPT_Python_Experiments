@@ -166,7 +166,7 @@ def display_grid(grid):
 
 
 # Load the grid pattern from the file
-script_name = "grid_pattern2.py"
+script_name = "grid_pattern.py"
 try:
     with open(script_name, 'r') as f:
         exec(f.read(), globals())
