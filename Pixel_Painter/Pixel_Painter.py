@@ -56,6 +56,11 @@ if __name__ == "__main__":
                     row = rectangle_y // cell_size
                     col = rectangle_x // cell_size
                     grid[col][row] = rectangle_color
+                # Turn current cell back to background color on 'd' key press
+                elif event.key == pygame.K_d:
+                    row = rectangle_y // cell_size
+                    col = rectangle_x // cell_size
+                    grid[col][row] = BLACK
                 # Generate script on 'g' key press
                 elif event.key == pygame.K_g:
                     script_name = "grid_pattern2.py"
