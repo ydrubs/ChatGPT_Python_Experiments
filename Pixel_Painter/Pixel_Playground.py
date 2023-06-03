@@ -1,6 +1,7 @@
 import pygame
 import random
 from Pixel_Painter import Settings
+from pygame.math import Vector2
 
 # Set screen dimensions
 screen_width = Settings.screen_width
@@ -16,27 +17,70 @@ WHITE = (255, 255, 255)
 # Define the Rectangle class
 class Rectangle:
     def __init__(self, x, y, color):
-        self.x = x
-        self.y = y
+        self.position = Vector2(x, y)
         self.color = color
-        self.initial_x = x  # Store the initial x position
-        self.initial_y = y  # Store the initial y position
-        self.speed = random.randint(1, 5)
+        self.initial_position = Vector2(x, y)
+        self.velocity = Vector2(0, random.randint(1, 5))
+        self.max_velocity = 10
         self.drift = random.uniform(-0.5, 0.5)
         self.drifting = False
 
-    def move(self):
-        self.y += self.speed
+    def move(self, rectangles):
+        self.position += self.velocity
         if self.drifting:
-            self.x += self.drift
-        if self.x > screen_width:  # Wrap around to the left side
-            self.x = -cell_size
-        elif self.x < -cell_size:  # Wrap around to the right side
-            self.x = screen_width
+            self.position.x += self.drift
 
-    def reset(self):
-        self.x = self.initial_x  # Reset to initial x position
-        self.y = self.initial_y  # Reset to initial y position
+        self.wrap_around_screen()
+
+        for rect in rectangles:
+            if rect != self:
+                if self.collides_with(rect):
+                    try:
+                        self.bounce(rect)
+                        self.limit_velocity()
+                    except ValueError:
+                        self.reset_position(rectangles)
+
+    def collides_with(self, rect):
+        return (
+            self.position.x < rect.position.x + cell_size
+            and self.position.x + cell_size > rect.position.x
+            and self.position.y < rect.position.y + cell_size
+            and self.position.y + cell_size > rect.position.y
+        )
+
+    def bounce(self, rect):
+        collision_normal = (self.position - rect.position).normalize()
+        if collision_normal.length() == 0:
+            raise ValueError("Zero-length vector")
+        relative_velocity = self.velocity - rect.velocity
+        restitution = 0.8  # Coefficient of restitution
+        impulse = -2 * relative_velocity.dot(collision_normal) * collision_normal
+        self.velocity += impulse * restitution
+        rect.velocity -= impulse * restitution
+        self.velocity.y = abs(self.velocity.y)  # Ensure downward movement
+        rect.velocity.y = abs(rect.velocity.y)  # Ensure downward movement
+
+    def wrap_around_screen(self):
+        if self.position.x < 0:
+            self.position.x = screen_width - cell_size
+        elif self.position.x >= screen_width:
+            self.position.x = 0
+
+        if self.position.y < -cell_size:
+            self.position.y = screen_height
+        elif self.position.y >= screen_height:
+            self.position.y = 0
+
+    def reset_position(self, rectangles):
+        self.position = self.initial_position
+        for rect in rectangles:
+            if rect != self:
+                rect.initial_position = Vector2(rect.initial_position.x, rect.initial_position.y)
+
+    def limit_velocity(self):
+        if self.velocity.length() > self.max_velocity:
+            self.velocity.scale_to_length(self.max_velocity)
 
 def display_grid(grid):
     # Initialize Pygame
@@ -64,9 +108,6 @@ def display_grid(grid):
     falling = False
     drifting = False
 
-    # Store the initial positions of the rectangles
-    initial_positions = [(rect.initial_x, rect.initial_y) for rect in rectangles]
-
     # Game loop
     running = True
     clock = pygame.time.Clock()
@@ -80,36 +121,34 @@ def display_grid(grid):
                 # Toggle falling animation on 'p' key press
                 if event.key == pygame.K_p:
                     falling = not falling
-                # Reset rectangles to initial positions on 'r' key press
-                elif event.key == pygame.K_r:
-                    if not falling:
-                        for rect, (x, y) in zip(rectangles, initial_positions):
-                            rect.reset()
-                            rect.x = x
-                            rect.y = y
                 # Change speed of rectangles on 's' key press
                 elif event.key == pygame.K_s:
                     for rect in rectangles:
-                        rect.speed = random.randint(1, 5)
+                        rect.velocity.y = random.randint(1, 5)
                 # Toggle drifting effect on 'w' key press
                 elif event.key == pygame.K_w:
                     drifting = not drifting
                     for rect in rectangles:
                         rect.drifting = drifting
+                # Reset rectangles and restore initial positions on 'r' key press
+                elif event.key == pygame.K_r:
+                    for rect in rectangles:
+                        rect.reset_position(rectangles)
+                        rect.velocity = Vector2(0, random.randint(1, 5))
 
         if falling:
             # Move rectangles if falling animation is active
             for rect in rectangles:
-                rect.move()
-                if rect.y >= screen_height:
-                    rect.y = -cell_size
+                rect.move(rectangles)
 
         # Fill the screen with black color
         screen.fill(BLACK)
 
         # Draw the rectangles
         for rect in rectangles:
-            pygame.draw.rect(screen, rect.color, (rect.x, rect.y, cell_size, cell_size))
+            pygame.draw.rect(
+                screen, rect.color, (rect.position.x, rect.position.y, cell_size, cell_size)
+            )
 
         # Update the display
         pygame.display.flip()
@@ -119,6 +158,7 @@ def display_grid(grid):
 
     # Quit the game
     pygame.quit()
+
 
 # Load the grid pattern from the file
 script_name = "grid_pattern2.py"
