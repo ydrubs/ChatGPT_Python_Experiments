@@ -25,21 +25,22 @@ class Rectangle:
         self.drift = random.uniform(-0.5, 0.5)
         self.drifting = False
 
-    def move(self, rectangles):
+    def move(self, rectangles, collisions_enabled):
         self.position += self.velocity
         if self.drifting:
             self.position.x += self.drift
 
         self.wrap_around_screen()
 
-        for rect in rectangles:
-            if rect != self:
-                if self.collides_with(rect):
-                    try:
-                        self.bounce(rect)
-                        self.limit_velocity()
-                    except ValueError:
-                        self.reset_position(rectangles)
+        if collisions_enabled:
+            for rect in rectangles:
+                if rect != self:
+                    if self.collides_with(rect):
+                        try:
+                            self.bounce(rect)
+                            self.limit_velocity()
+                        except ValueError:
+                            self.reset_position(rectangles)
 
     def collides_with(self, rect):
         return (
@@ -107,6 +108,7 @@ def display_grid(grid):
     # Falling animation variables
     falling = False
     drifting = False
+    collisions_enabled = False
 
     # Game loop
     running = True
@@ -135,11 +137,14 @@ def display_grid(grid):
                     for rect in rectangles:
                         rect.reset_position(rectangles)
                         rect.velocity = Vector2(0, random.randint(1, 5))
+                # Toggle collisions on 'c' key press
+                elif event.key == pygame.K_c:
+                    collisions_enabled = not collisions_enabled
 
         if falling:
             # Move rectangles if falling animation is active
             for rect in rectangles:
-                rect.move(rectangles)
+                rect.move(rectangles, collisions_enabled)
 
         # Fill the screen with black color
         screen.fill(BLACK)
